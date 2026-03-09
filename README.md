@@ -60,6 +60,16 @@ If `mysql` is not on the host, `test-import.sh` runs the import inside a contain
 - Local Nginx Conf: ./conf/moaz-carvalue.local.conf
 - Local URL: http://localhost:8000/
 
+## API and tests
+
+- **API:** `GET /api.php?year=...&make=...&model=...&mileage=...` — see [docs/api-docs.md](docs/api-docs.md).
+- **Integration tests:** Use a test database (e.g. `moaz_carvalue_test`). Run:
+  ```bash
+  composer install
+  vendor/bin/phpunit
+  ```
+  Ensure MySQL/MariaDB is running and credentials in `phpunit.xml` (or env) match your test DB. Alternatively, use the helper script: `./scripts/run-tests.sh`.
+
 ## Production Environment
 
 - OS: AlmaLinux 9 (running as public VM)
