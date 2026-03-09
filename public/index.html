@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CarValue — Vehicle Market Value Estimator</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2d3748;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1a202c;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            margin-top: 8px;
+            font-size: 1.05rem;
+            color: #718096;
+        }
+
+        /* ── Search Card ──────────────────────────────────────── */
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-group { display: flex; flex-direction: column; }
+
+        .form-group label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .form-group label .optional {
+            font-weight: 400;
+            text-transform: none;
+            color: #a0aec0;
+            font-size: 0.78rem;
+        }
+
+        .form-group input {
+            padding: 10px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #2d3748;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            background: #fff;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66,153,225,0.15);
+        }
+
+        .form-group input::placeholder { color: #cbd5e0; }
+
+        .form-actions {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn-primary {
+            padding: 10px 32px;
+            background: #3182ce;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-primary:hover { background: #2b6cb0; }
+        .btn-primary:disabled { background: #a0aec0; cursor: not-allowed; }
+
+        .btn-clear {
+            padding: 10px 20px;
+            background: transparent;
+            color: #718096;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .btn-clear:hover { border-color: #a0aec0; color: #4a5568; }
+
+        /* ── Error Banner ─────────────────────────────────────── */
+        .error-banner {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: 8px;
+            padding: 14px 20px;
+            color: #c53030;
+            font-size: 0.92rem;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .error-banner ul { margin: 6px 0 0 18px; }
+
+        /* ── Estimate Display ─────────────────────────────────── */
+        .estimate-section {
+            display: none;
+            text-align: center;
+            padding: 36px 32px;
+        }
+
+        .estimate-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #718096;
+            margin-bottom: 4px;
+        }
+
+        .estimate-vehicle {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 16px;
+        }
+
+        .estimate-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #276749;
+            letter-spacing: -1px;
+        }
+
+        .estimate-meta {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #a0aec0;
+        }
+
+        .estimate-message {
+            font-size: 1.1rem;
+            color: #718096;
+            padding: 12px 0;
+        }
+
+        /* ── Listings Table ───────────────────────────────────── */
+        .listings-section {
+            display: none;
+        }
+
+        .listings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 16px;
+        }
+
+        .listings-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .listings-header .count {
+            font-size: 0.85rem;
+            color: #a0aec0;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        thead th {
+            background: #f7fafc;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #4a5568;
+            border-bottom: 1.5px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 11px 16px;
+            border-bottom: 1px solid #edf2f7;
+            color: #4a5568;
+        }
+
+        tbody tr:last-child td { border-bottom: none; }
+
+        tbody tr:hover { background: #f7fafc; }
+
+        .col-price { font-weight: 600; color: #2d3748; }
+
+        /* ── Spinner ──────────────────────────────────────────── */
+        .spinner {
+            display: none;
+            text-align: center;
+            padding: 48px 0;
+        }
+
+        .spinner::after {
+            content: "";
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #3182ce;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Responsive ───────────────────────────────────────── */
+        @media (max-width: 700px) {
+            .form-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 480px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .container { padding: 24px 16px; }
+            .card { padding: 24px 20px; }
+            .estimate-value { font-size: 2.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CarValue</h1>
+            <p>Estimate a vehicle's market value by year, make, and model</p>
+        </header>
+
+        <!-- Search Form -->
+        <div class="card" id="search-card">
+            <form id="search-form" autocomplete="off">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="year">Year</label>
+                        <input type="text" id="year" name="year" placeholder="e.g. 2015" inputmode="numeric" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="make">Make</label>
+                        <input type="text" id="make" name="make" placeholder="e.g. Toyota" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="model">Model</label>
+                        <input type="text" id="model" name="model" placeholder="e.g. Camry" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="mileage">Mileage <span class="optional">(optional)</span></label>
+                        <input type="text" id="mileage" name="mileage" placeholder="e.g. 80000" inputmode="numeric">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary" id="btn-search">Get Estimate</button>
+                    <button type="button" class="btn-clear" id="btn-clear">Clear</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Error Banner -->
+        <div class="error-banner" id="error-banner"></div>
+
+        <!-- Loading Spinner -->
+        <div class="spinner" id="spinner"></div>
+
+        <!-- Estimate Result -->
+        <div class="card estimate-section" id="estimate-section">
+            <div class="estimate-label">Estimated Market Value</div>
+            <div class="estimate-vehicle" id="estimate-vehicle"></div>
+            <div class="estimate-value" id="estimate-value"></div>
+            <div class="estimate-meta" id="estimate-meta"></div>
+            <div class="estimate-message" id="estimate-message"></div>
+        </div>
+
+        <!-- Sample Listings -->
+        <div class="card listings-section" id="listings-section">
+            <div class="listings-header">
+                <h2>Sample Listings</h2>
+                <span class="count" id="listings-count"></span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Price</th>
+                            <th>Mileage</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listings-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        var form        = document.getElementById('search-form');
+        var btnSearch   = document.getElementById('btn-search');
+        var btnClear    = document.getElementById('btn-clear');
+        var errorBanner = document.getElementById('error-banner');
+        var spinner     = document.getElementById('spinner');
+        var estimateSec = document.getElementById('estimate-section');
+        var listingsSec = document.getElementById('listings-section');
+
+        function hide(el) { el.style.display = 'none'; }
+        function show(el, display) { el.style.display = display || 'block'; }
+
+        function formatCurrency(n) {
+            if (n == null) return '—';
+            return '$' + Number(n).toLocaleString('en-US');
+        }
+
+        function formatMileage(n) {
+            if (n == null) return '—';
+            return Number(n).toLocaleString('en-US') + ' mi';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        function clearResults() {
+            hide(errorBanner);
+            hide(estimateSec);
+            hide(listingsSec);
+        }
+
+        function showError(messages) {
+            clearResults();
+            if (Array.isArray(messages)) {
+                errorBanner.innerHTML = '<strong>Validation error</strong><ul>' +
+                    messages.map(function (m) { return '<li>' + escapeHtml(m) + '</li>'; }).join('') +
+                    '</ul>';
+            } else {
+                errorBanner.innerHTML = escapeHtml(messages);
+            }
+            show(errorBanner);
+        }
+
+        function renderEstimate(data, searchParams) {
+            var vehicleLabel = searchParams.year + ' ' + searchParams.make + ' ' + searchParams.model;
+            document.getElementById('estimate-vehicle').textContent = vehicleLabel;
+
+            var valueEl   = document.getElementById('estimate-value');
+            var metaEl    = document.getElementById('estimate-meta');
+            var messageEl = document.getElementById('estimate-message');
+
+            if (data.estimated_value != null) {
+                valueEl.textContent = formatCurrency(data.estimated_value);
+                show(valueEl);
+                var metaParts = ['Based on ' + data.total_matches + ' listing' + (data.total_matches !== 1 ? 's' : '')];
+                if (searchParams.mileage) {
+                    metaParts.push('near ' + formatMileage(parseInt(searchParams.mileage, 10)));
+                }
+                metaEl.textContent = metaParts.join(' · ');
+                show(metaEl);
+                hide(messageEl);
+            } else {
+                hide(valueEl);
+                hide(metaEl);
+                messageEl.textContent = data.message || 'No estimate available.';
+                show(messageEl);
+            }
+
+            show(estimateSec);
+        }
+
+        function renderListings(data) {
+            var listings = data.sample_listings || [];
+            if (listings.length === 0) {
+                hide(listingsSec);
+                return;
+            }
+
+            var countEl = document.getElementById('listings-count');
+            if (data.total_matches > listings.length) {
+                countEl.textContent = 'Showing ' + listings.length + ' of ' + data.total_matches;
+            } else {
+                countEl.textContent = listings.length + ' listing' + (listings.length !== 1 ? 's' : '');
+            }
+
+            var tbody = document.getElementById('listings-body');
+            var html = '';
+            for (var i = 0; i < listings.length; i++) {
+                var l = listings[i];
+                html += '<tr>' +
+                    '<td>' + escapeHtml(l.vehicle) + '</td>' +
+                    '<td class="col-price">' + formatCurrency(l.price) + '</td>' +
+                    '<td>' + formatMileage(l.mileage) + '</td>' +
+                    '<td>' + escapeHtml(l.location || '—') + '</td>' +
+                    '</tr>';
+            }
+            tbody.innerHTML = html;
+
+            show(listingsSec);
+        }
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            clearResults();
+
+            var year    = document.getElementById('year').value.trim();
+            var make    = document.getElementById('make').value.trim();
+            var model   = document.getElementById('model').value.trim();
+            var mileage = document.getElementById('mileage').value.trim();
+
+            var params = 'year=' + encodeURIComponent(year) +
+                         '&make=' + encodeURIComponent(make) +
+                         '&model=' + encodeURIComponent(model);
+            if (mileage !== '') {
+                params += '&mileage=' + encodeURIComponent(mileage);
+            }
+
+            show(spinner);
+            btnSearch.disabled = true;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api.php?' + params, true);
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.onload = function () {
+                hide(spinner);
+                btnSearch.disabled = false;
+
+                var data;
+                try { data = JSON.parse(xhr.responseText); }
+                catch (err) { showError('Unexpected server response.'); return; }
+
+                if (xhr.status === 400) {
+                    showError(data.details || data.error || 'Bad request.');
+                    return;
+                }
+
+                if (xhr.status !== 200) {
+                    showError('Server error (' + xhr.status + ').');
+                    return;
+                }
+
+                renderEstimate(data, { year: year, make: make, model: model, mileage: mileage });
+                renderListings(data);
+            };
+            xhr.onerror = function () {
+                hide(spinner);
+                btnSearch.disabled = false;
+                showError('Network error — could not reach the server.');
+            };
+            xhr.send();
+        });
+
+        btnClear.addEventListener('click', function () {
+            form.reset();
+            clearResults();
+        });
+    })();
+    </script>
+</body>
+</html>

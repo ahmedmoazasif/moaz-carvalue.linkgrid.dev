@@ -1,2 +1,6 @@
 /vendor/
+/node_modules/
 .phpunit.result.cache
+/screenshots/
+test-report.md
+test-results.json
