@@ -1,0 +1,28 @@
+{
+  "name": "carvalue",
+  "version": "1.0.0",
+  "description": "CarValue is an internal web interface for estimating car values based on year/make/model and mileage based on a data file containing reference inventory, dealers, and zip codes.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahmedmoazasif/moaz-carvalue.linkgrid.dev.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ahmedmoazasif/moaz-carvalue.linkgrid.dev/issues"
+  },
+  "homepage": "https://github.com/ahmedmoazasif/moaz-carvalue.linkgrid.dev#readme",
+  "devDependencies": {
+    "playwright": "^1.58.2"
+  }
+}

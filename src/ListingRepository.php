@@ -77,6 +77,44 @@ final class ListingRepository
     }
 
     /**
+     * Fetch all YMM listings that have both non-null price and non-null mileage.
+     * Used as data points for linear regression when the mileage-band query is insufficient.
+     *
+     * @return array{listings: array<int, array>, total_count: int, average_price: float|null}
+     */
+    public function findAllWithMileageData(int $year, string $make, string $model): array
+    {
+        $make = trim($make);
+        $model = trim($model);
+        if ($make === '' || $model === '') {
+            return ['listings' => [], 'total_count' => 0, 'average_price' => null];
+        }
+
+        $params = ['year' => $year, 'make' => $make, 'model' => $model];
+        $where = "year = :year AND make = :make AND model = :model
+                  AND listing_price IS NOT NULL AND listing_mileage IS NOT NULL";
+
+        $aggSql = "SELECT COUNT(*) AS cnt, AVG(listing_price) AS avg_price FROM listings WHERE $where";
+        $aggStmt = $this->pdo->prepare($aggSql);
+        $aggStmt->execute($params);
+        $agg = $aggStmt->fetch(PDO::FETCH_ASSOC);
+        $totalCount = (int) ($agg['cnt'] ?? 0);
+        $averagePrice = $agg['avg_price'] !== null ? (float) $agg['avg_price'] : null;
+
+        $sampleSql = "
+            SELECT id, year, make, model, trim, listing_price, listing_mileage, dealer_city, dealer_state
+            FROM listings
+            WHERE $where
+            ORDER BY listing_mileage ASC
+            LIMIT " . self::SAMPLE_LIMIT;
+        $stmt = $this->pdo->prepare($sampleSql);
+        $stmt->execute($params);
+        $listings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return ['listings' => $listings, 'total_count' => $totalCount, 'average_price' => $averagePrice];
+    }
+
+    /**
      * Mileage band: ±25% or ±25,000 miles, whichever is smaller.
      */
     private function mileageBand(int $mileage): array

@@ -45,22 +45,70 @@ final class ApiIntegrationTest extends TestCase
     public function test_search_with_mileage_reflects_mileage_band(): void
     {
         $json = $this->getApiResponse([
-            'year' => '2015', 'make' => 'Toyota', 'model' => 'Camry', 'mileage' => '100000',
+            'year' => '2015', 'make' => 'Toyota', 'model' => 'Camry', 'mileage' => '70000',
         ]);
         $this->assertSame(200, $this->getLastHttpCode());
         $this->assertArrayHasKey('estimated_value', $json);
         $this->assertArrayHasKey('sample_listings', $json);
-        // Mileage band ±25% of 100k = 75k–125k. Fixtures have 5 with price at 50k–90k (none in band)
-        // So we get 0 matches with mileage filter, or if we have any in band they'd be returned.
-        // Actually our fixtures: 50000,60000,70000,80000,90000 - all below 75k. So 0 in band.
-        $this->assertLessThanOrEqual(5, $json['total_matches']);
-        // If we have no rows in band, message is "No listings found." or "Insufficient data."
-        if ($json['total_matches'] < 5) {
+        // Mileage band ±25% of 70k = 52,500–87,500. Fixtures mileages: 50k,60k,70k,80k,90k.
+        // In band: 60k,70k,80k = 3 listings → < MIN_LISTINGS → extrapolation fallback.
+        // With extrapolation from all 5 listings, we should get an estimate.
+        $this->assertArrayHasKey('is_extrapolated', $json);
+        if ($json['is_extrapolated']) {
+            $this->assertIsInt($json['estimated_value']);
             $this->assertNotNull($json['message']);
-            $this->assertNull($json['estimated_value']);
+            $this->assertStringContainsString('Extrapolated', $json['message']);
         } else {
             $this->assertIsInt($json['estimated_value']);
         }
+    }
+
+    /**
+     * 2b. Extrapolation fallback — mileage outside band triggers linear regression from all YMM data.
+     */
+    public function test_extrapolation_when_mileage_band_insufficient(): void
+    {
+        // Mileage 100k → band 75k–125k. Fixtures mileages: 50k,60k,70k,80k,90k.
+        // In band: 80k,90k = 2 listings → < MIN_LISTINGS → extrapolation from all 5.
+        $json = $this->getApiResponse([
+            'year' => '2015', 'make' => 'Toyota', 'model' => 'Camry', 'mileage' => '100000',
+        ]);
+        $this->assertSame(200, $this->getLastHttpCode());
+
+        $this->assertTrue($json['is_extrapolated']);
+        $this->assertIsInt($json['estimated_value']);
+        $this->assertNotNull($json['message']);
+        $this->assertStringContainsString('Extrapolated', $json['message']);
+        $this->assertSame(5, $json['total_matches']);
+
+        $this->assertNotNull($json['extrapolation_details']);
+        $this->assertSame('linear_regression', $json['extrapolation_details']['method']);
+        $this->assertArrayHasKey('slope', $json['extrapolation_details']);
+        $this->assertArrayHasKey('intercept', $json['extrapolation_details']);
+        $this->assertArrayHasKey('r_squared', $json['extrapolation_details']);
+        $this->assertArrayHasKey('data_points', $json['extrapolation_details']);
+        $this->assertSame(5, $json['extrapolation_details']['data_points']);
+
+        // Fixtures: mileage 50k→$10k, 60k→$11k, 70k→$12k, 80k→$13k, 90k→$14k
+        // Perfect linear: price = 0.10 * mileage + 5000.
+        // At 100k: 0.10 * 100000 + 5000 = 15000.
+        $this->assertSame(15000, $json['estimated_value']);
+
+        // Slope should be ~0.10 (price increases $1000 per 10k miles in fixtures)
+        $this->assertEqualsWithDelta(0.1, $json['extrapolation_details']['slope'], 0.01);
+        // R² should be ~1.0 for perfectly linear fixture data
+        $this->assertEqualsWithDelta(1.0, $json['extrapolation_details']['r_squared'], 0.01);
+    }
+
+    /**
+     * 2c. Extrapolation not used when mileage is absent.
+     */
+    public function test_no_extrapolation_without_mileage(): void
+    {
+        $json = $this->getApiResponse(['year' => '2015', 'make' => 'Toyota', 'model' => 'Camry']);
+        $this->assertSame(200, $this->getLastHttpCode());
+        $this->assertFalse($json['is_extrapolated']);
+        $this->assertNull($json['extrapolation_details']);
     }
 
     /**
